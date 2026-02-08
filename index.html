@@ -1,1 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Valentine's Hacker Quest</title>
+<style>
+  body {
+    margin: 0;
+    background: black;
+    font-family: monospace;
+    overflow: hidden;
+    color: #ff99cc;
+  }
+  #container {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+  }
+  canvas {
+    image-rendering: pixelated;
+    display: block;
+    margin: 0 auto;
+    background: black;
+  }
+  #terminalText {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 18px;
+    white-space: pre;
+    text-align: center;
+    color: #ff99cc;
+  }
+  #inputBox {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+  }
+  #inputBox input {
+    font-family: monospace;
+    font-size: 16px;
+    padding: 5px;
+    background: black;
+    color: #00ff00;
+    border: 2px solid #ff99cc;
+  }
+  .hidden {
+    display: none;
+  }
+  #pixelHeart, #bonusDoor, #cassette {
+    position: absolute;
+    cursor: pointer;
+    image-rendering: pixelated;
+  }
+</style>
+</head>
+<body>
+<div id="container">
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
+  <div id="terminalText"></div>
+  <div id="inputBox">
+    <input type="text" id="codeInput" placeholder="Enter code">
+  </div>
+  <canvas id="pixelHeart" width="64" height="64" class="hidden"></canvas>
+  <canvas id="bonusDoor" width="48" height="64" class="hidden"></canvas>
+  <canvas id="cassette" width="128" height="64" class="hidden"></canvas>
+</div>
+
+<audio id="evilLaugh" src="assets/evil-laugh.mp3"></audio>
+<script>
+// === GLOBALS ===
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const terminal = document.getElementById("terminalText");
+const laugh = document.getElementById("evilLaugh");
+const pixelHeart = document.getElementById("pixelHeart");
+const bonusDoor = document.getElementById("bonusDoor");
+const cassette = document.getElementById("cassette");
+const inputBox = document.getElementById("inputBox");
+const codeInput = document.getElementById("codeInput");
+
+let gameStarted = false;
+let hiddenCode = "";
+
+// === HACKED TERMINAL INTRO ===
+const hackIntro = [
+  "YOU'VE BEEN HACKED BY BUNNY! MUHAHAHA",
+  "!!! SYSTEM COMPROMISED !!!",
+  "!!! UNAUTHORIZED ACCESS DETECTED !!!",
+  "Press Y to continue… if you dare"
+];
+
+let lineIndex=0, charIndex=0;
+function typeLine(){
+  if(lineIndex>=hackIntro.length) return;
+  const line = hackIntro[lineIndex];
+  terminal.innerHTML += line[charIndex];
+  charIndex++;
+  if(charIndex<line.length){
+    setTimeout(typeLine, 50+Math.random()*30);
+  } else {
+    terminal.innerHTML += "\n";
+    lineIndex++;
+    charIndex=0;
+    setTimeout(typeLine, 200);
+  }
+}
+
+// Bunny sprite on canvas
+function drawBunny(ctx, x=300, y=150){
+  // Body
+  ctx.fillStyle="#333";
+  ctx.fillRect(x, y, 40,40);
+  // Head
+  ctx.fillRect(x+5,y-20,30,30);
+  // Ears
+  ctx.fillRect(x+5,y-30,8,10);
+  ctx.fillRect(x+27,y-30,8,10);
+  // Eyes X
+  ctx.strokeStyle="red";
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(x+10,y-15); ctx.lineTo(x+15,y-10);
+  ctx.moveTo(x+15,y-15); ctx.lineTo(x+10,y-10);
+  ctx.moveTo(x+20,y-15); ctx.lineTo(x+25,y-10);
+  ctx.moveTo(x+25,y-15); ctx.lineTo(x+20,y-10);
+  ctx.stroke();
+  // Nose
+  ctx.fillStyle="pink";
+  ctx.fillRect(x+22,y-5,4,2);
+  // Tongue
+  ctx.fillStyle="red";
+  ctx.fillRect(x+22,y-2,4,2);
+  // Crossed bones behind
+  ctx.strokeStyle="#555";
+  ctx.lineWidth=4;
+  ctx.beginPath();
+  ctx.moveTo(x-50,y+50); ctx.lineTo(x+150,y-10);
+  ctx.moveTo(x-50,y-10); ctx.lineTo(x+150,y+50);
+  ctx.stroke();
+}
+
+// === START INTRO ===
+function startIntro(){
+  drawBunny(ctx);
+  laugh.play();
+  typeLine();
+}
+
+// === START GAME ===
+window.addEventListener("keydown", e=>{
+  if(e.key.toLowerCase()==="y" && !gameStarted){
+    gameStarted=true;
+    terminal.innerHTML="";
+    startGame();
+  }
+});
+
+// === MOCK SIDE-SCROLLER ===
+let player={x:50,y:300,w:32,h:32,vy:0};
+let keys={};
+let gravity=0.5;
+let collectibles=[
+  {x:200,y:280,letter:"H",collected:false},
+  {x:350,y:280,letter:"A",collected:false},
+  {x:500,y:280,letter:"C",collected:false},
+  {x:650,y:280,letter:"K",collected:false}
+];
+
+window.addEventListener("keydown", e=>keys[e.key.toLowerCase()]=true);
+window.addEventListener("keyup", e=>keys[e.key.toLowerCase()]=false);
+
+function startGame(){
+  requestAnimationFrame(gameLoop);
+}
+
+function gameLoop(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // Ground
+  ctx.fillStyle="#ff99cc";
+  ctx.fillRect(0,350,canvas.width,50);
+  // Player
+  if(keys["arrowup"] && player.y>=300) player.vy=-10;
+  player.vy+=gravity;
+  player.y+=player.vy;
+  if(player.y>300){player.y=300;player.vy=0;}
+  if(keys["arrowleft"]) player.x-=5;
+  if(keys["arrowright"]) player.x+=5;
+  // Draw player
+  ctx.fillStyle="#a0522d";
+  ctx.fillRect(player.x,player.y,player.w,player.h);
+  // Draw collectibles
+  collectibles.forEach(c=>{
+    if(!c.collected){
+      ctx.fillStyle="#ff69b4";
+      ctx.fillRect(c.x,c.y,20,20);
+      ctx.fillStyle="#00ff00";
+      ctx.fillText(c.letter,c.x+5,c.y+15);
+      // Collision
+      if(player.x< c.x+20 && player.x+player.w>c.x && player.y<c.y+20 && player.y+player.h>c.y){
+        c.collected=true;
+        hiddenCode+=c.letter;
+      }
+    }
+  });
+  // Check level complete
+  if(collectibles.every(c=>c.collected)){
+    showEndGame();
+    return;
+  }
+  requestAnimationFrame(gameLoop);
+}
+
+// === ENDGAME HEART, DOOR, CASSETTE ===
+function showEndGame(){
+  canvas.style.display="none";
+  terminal.innerHTML="Well done, Mr. Cody!";
+  setTimeout(()=>{
+    terminal.innerHTML="";
+    pixelHeart.classList.remove("hidden");
+    pixelHeart.style.left="50%";
+    pixelHeart.style.top="40%";
+    pixelHeart.style.transform="translateX(-50%)";
+    drawPixelHeart();
+  },1000);
+}
+
+// DRAW HEART
+function drawPixelHeart(){
+  const ctxH=pixelHeart.getContext("2d");
+  ctxH.fillStyle="#00ff00";
+  ctxH.fillRect(16,0,32,32);
+  ctxH.fillStyle="#00ff00";
+  ctxH.fillRect(0,16,64,32);
+  // Small black heart in center
+  ctxH.fillStyle="black";
+  ctxH.fillRect(28,16,8,8);
+}
+
+// BONUS DOOR
+bonusDoor.addEventListener("click",()=>{
+  inputBox.style.display="block";
+  terminal.innerHTML="Guarded bonus loot. Enter hidden code:";
+});
+
+// CODE INPUT
+codeInput.addEventListener("keypress", e=>{
+  if(e.key==="Enter"){
+    if(codeInput.value.toUpperCase()===hiddenCode){
+      inputBox.style.display="none";
+      terminal.innerHTML="Code accepted!";
+      cassette.classList.remove("hidden");
+      cassette.style.left="50%";
+      cassette.style.top="50%";
+      cassette.style.transform="translate(-50%,-50%)";
+      drawCassette();
+    } else terminal.innerHTML="Incorrect code. Try again!";
+  }
+});
+
+// DRAW CASSETTE
+function drawCassette(){
+  const ctxC=cassette.getContext("2d");
+  ctxC.fillStyle="black";
+  ctxC.fillRect(0,0,128,64);
+  ctxC.fillStyle="white";
+  ctxC.fillRect(10,10,108,44);
+  // Green stripe
+  ctxC.fillStyle="#00ff00";
+  ctxC.fillRect(10,25,108,14);
+  // Small black heart
+  ctxC.fillStyle="black";
+  ctxC.fillRect(58,22,12,12);
+  // Pixel letters "puppy's playlist"
+  ctxC.fillStyle="#00ff00";
+  ctxC.font="8px monospace";
+  ctxC.fillText("puppy's playlist",18,38);
+}
+
+startIntro();
+</script>
+</body>
+</html>
 
