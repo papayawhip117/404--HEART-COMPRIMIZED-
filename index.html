@@ -279,6 +279,15 @@ function drawCassette(){
   ctxC.font="8px monospace";
   ctxC.fillText("puppy's playlist",18,38);
 }
+function flickerTerminal() {
+  if(Math.random() < 0.1){
+    terminal.style.color = "#ff99cc";
+  } else {
+    terminal.style.color = "#ff66aa";
+  }
+  if(!gameStarted) setTimeout(flickerTerminal, 100);
+}
+flickerTerminal();
 
 startIntro();
 </script>
